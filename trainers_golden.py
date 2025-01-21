@@ -68,6 +68,44 @@ def preference_loss(policy_chosen_logps: torch.FloatTensor,
         The chosen_rewards and rejected_rewards tensors contain the rewards for the chosen and rejected responses, respectively.
     """
 
+    # # save the inputs for unit test
+    # with open("tensors/policy_chosen_logps.pt", 'ab') as f:  # 'ab' 表示以二进制追加模式写入
+    #     torch.save(policy_chosen_logps, f)
+    # with open("tensors/policy_rejected_logps.pt", 'ab') as f:  # 'ab' 表示以二进制追加模式写入
+    #     torch.save(policy_rejected_logps, f)
+    # with open("tensors/reference_chosen_logps.pt", 'ab') as f:  # 'ab' 表示以二进制追加模式写入
+    #     torch.save(reference_chosen_logps, f)
+    # with open("tensors/reference_rejected_logps.pt", 'ab') as f:  # 'ab' 表示以二进制追加模式写入
+    #     torch.save(reference_rejected_logps, f)
+    # # with open("tensors/reference_free.pt", 'ab') as f:  # 'ab' 表示以二进制追加模式写入
+    # #     torch.save(reference_free, f)
+     
+
+    pi_logratios = policy_chosen_logps - policy_rejected_logps
+    ref_logratios = reference_chosen_logps - reference_rejected_logps
+
+    if reference_free:
+        ref_logratios = 0
+
+    logits = pi_logratios - ref_logratios  # also known as h_{\pi_\theta}^{y_w,y_l}
+
+    if ipo:
+        losses = (logits - 1/(2 * beta)) ** 2  # Eq. 17 of https://arxiv.org/pdf/2310.12036v2.pdf
+    else:
+        # Eq. 3 https://ericmitchell.ai/cdpo.pdf; label_smoothing=0 gives original DPO (Eq. 7 of https://arxiv.org/pdf/2305.18290.pdf)
+        losses = -F.logsigmoid(beta * logits) * (1 - label_smoothing) - F.logsigmoid(-beta * logits) * label_smoothing
+
+    chosen_rewards = beta * (policy_chosen_logps - reference_chosen_logps).detach()
+    rejected_rewards = beta * (policy_rejected_logps - reference_rejected_logps).detach()
+
+    # save the outputs for unit test
+    # print("losses:", losses)
+    # with open("tensors/losses.pt", 'ab') as f:  # 'ab' 表示以二进制追加模式写入
+    #     torch.save(losses, f)
+    # # with open("tensors/chosen_rewards.pt", 'ab') as f:  # 'ab' 表示以二进制追加模式写入
+    # #     torch.save(chosen_rewards, f)
+    # # with open("tensors/rejected_rewards.pt", 'ab') as f:  # 'ab' 表示以二进制追加模式写入
+    # #     torch.save(rejected_rewards, f)
 
     return losses, chosen_rewards, rejected_rewards
 
